@@ -77,6 +77,13 @@
     (begin
         (asserts! (is-eq tx-sender CONTRACT-OWNER) ERR-NOT-AUTHORIZED)
         (asserts! (<= (+ (var-get total-supply) amount) MAX-SUPPLY) ERR-MAX-SUPPLY-REACHED)
+        ;; Add input validation
+        (asserts! (not (is-eq beneficiary CONTRACT-OWNER)) ERR-NOT-AUTHORIZED)  ;; New check
+        (asserts! (not (is-eq beneficiary tx-sender)) ERR-NOT-AUTHORIZED)       ;; New check
+        (asserts! (>= start-block block-height) ERR-INVALID-AMOUNT)
+        (asserts! (> duration-blocks cliff-blocks) ERR-INVALID-AMOUNT)
+        (asserts! (>= tier u1) ERR-INVALID-AMOUNT)
+        (asserts! (<= tier u4) ERR-INVALID-AMOUNT)  ;; Assuming 4 tiers max
         
         (map-set vesting-schedules
             beneficiary
@@ -112,6 +119,9 @@
         (proposer-balance (ft-get-balance governed-token tx-sender))
     )
         (asserts! (>= proposer-balance MIN-PROPOSAL-THRESHOLD) ERR-INSUFFICIENT-BALANCE)
+        ;; Add input validation
+        (asserts! (> (len title) u0) ERR-INVALID-AMOUNT)
+        (asserts! (> (len description) u0) ERR-INVALID-AMOUNT)
         
         (map-set proposals
             (var-get proposal-count)
@@ -172,12 +182,13 @@
         (start-block (get start-block vesting-info))
         (cliff-blocks (get cliff-blocks vesting-info))
         (duration-blocks (get duration-blocks vesting-info))
+        (elapsed-amount (/ (* total-amount (- block-height start-block)) duration-blocks))
     )
         (if (< block-height (+ start-block cliff-blocks))
             u0
-            (- (min
-                total-amount
-                (/ (* total-amount (- block-height start-block)) duration-blocks))
+            (- (if (> elapsed-amount total-amount)
+                    total-amount
+                    elapsed-amount)
                claimed-amount))))
 
 ;; Read-only functions
